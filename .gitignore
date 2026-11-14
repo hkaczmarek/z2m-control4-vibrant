@@ -1,0 +1,7 @@
+# Firmware and drivers are Control4's; never commit them
+*.zigbee
+*.ota
+*.c4z
+ota/
+__pycache__/
+node_modules/
