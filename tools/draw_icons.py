@@ -1,89 +1,119 @@
-"""Draw simple original A19 bulb icons for the Zigbee2MQTT frontend."""
+"""Draw simple original A19 bulb icons for the Zigbee2MQTT frontend.
+
+Shape: flat, wide dome on top, straight taper, E26 screw base (a generic modern
+A19 silhouette). No logos, lettering or product markings.
+
+Usage: python3 draw_icons.py OUTPUT_DIR
+"""
 import math
 import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-S = 4  # supersampling
+S = 4                      # supersampling factor
 W = H = 256 * S
+CX = W // 2
 
 
-def bulb(fill_fn, glow_rgb, out: Path):
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+def lerp(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(len(a)))
 
-    # soft glow
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    cx, cy, r = W // 2, int(H * 0.40), int(W * 0.30)
-    gd.ellipse([cx - r - 40 * S // 4, cy - r - 40 * S // 4, cx + r + 40 * S // 4, cy + r + 40 * S // 4], fill=glow_rgb + (110,))
-    glow = glow.filter(ImageFilter.GaussianBlur(28 * S))
-    img.alpha_composite(glow)
 
-    # glass: circle + tapered neck (A19 silhouette)
-    mask = Image.new("L", (W, H), 0)
-    md = ImageDraw.Draw(mask)
-    md.ellipse([cx - r, cy - r, cx + r, cy + r], fill=255)
-    neck_top = cy + int(r * 0.55)
-    neck_bot = int(H * 0.72)
-    md.polygon(
-        [(cx - int(r * 0.83), neck_top), (cx + int(r * 0.83), neck_top),
-         (cx + int(r * 0.42), neck_bot), (cx - int(r * 0.42), neck_bot)],
-        fill=255,
-    )
-    glass = Image.new("RGBA", (W, H))
-    gp = glass.load()
-    for y in range(0, H, 2):
-        for x in range(0, W, 2):
-            c = fill_fn((x - cx) / r, (y - cy) / r)
+def shape_masks():
+    """Return (dome_mask, body_mask, outline_points) for the bulb silhouette."""
+    top, dome_bot, body_bot = int(H * 0.06), int(H * 0.36), int(H * 0.70)
+    half_top = int(W * 0.25)          # half width at the widest point
+    half_bot = int(W * 0.115)         # half width where the body meets the base
+    corner = int(W * 0.13)            # roundness of the dome's shoulders
+
+    dome = Image.new("L", (W, H), 0)
+    d = ImageDraw.Draw(dome)
+    d.rounded_rectangle([CX - half_top, top, CX + half_top, dome_bot + corner], radius=corner, fill=255)
+    d.rectangle([CX - half_top, dome_bot, CX + half_top, H], fill=0)
+
+    body = Image.new("L", (W, H), 0)
+    b = ImageDraw.Draw(body)
+    b.polygon([(CX - half_top, dome_bot), (CX + half_top, dome_bot),
+               (CX + half_bot, body_bot), (CX - half_bot, body_bot)], fill=255)
+    return dome, body, (dome_bot, body_bot, half_bot)
+
+
+def paint(mask, fn):
+    layer = Image.new("RGBA", (W, H))
+    px = layer.load()
+    box = mask.getbbox()
+    for y in range(box[1], box[3], 2):
+        for x in range(box[0], box[2], 2):
+            c = fn(x, y, box)
             for dx in (0, 1):
                 for dy in (0, 1):
-                    gp[x + dx, y + dy] = c
-    img.paste(glass, (0, 0), mask)
+                    px[x + dx, y + dy] = c
+    return layer
 
-    # highlight
-    hl = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    hd = ImageDraw.Draw(hl)
-    hd.ellipse([cx - int(r * 0.62), cy - int(r * 0.70), cx - int(r * 0.12), cy - int(r * 0.25)], fill=(255, 255, 255, 120))
-    hl = hl.filter(ImageFilter.GaussianBlur(6 * S))
-    img.alpha_composite(hl)
 
-    # base: collar + threads + tip
+def draw_bulb(dome_fn, glow_rgb, out: Path):
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    dome_m, body_m, (dome_bot, body_bot, half_bot) = shape_masks()
+
+    # glow behind the lit dome
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse([CX - int(W * .34), int(H * .0), CX + int(W * .34), int(H * .48)], fill=glow_rgb + (120,))
+    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(26 * S)))
+
+    # body: matte white, slightly shaded toward the edges and the bottom
+    def body_fn(x, y, box):
+        nx = abs((x - CX) / ((box[2] - box[0]) / 2))
+        ny = (y - box[1]) / (box[3] - box[1])
+        shade = 0.10 * nx ** 2 + 0.10 * ny
+        return lerp((246, 246, 244, 255), (200, 202, 205, 255), shade * 2.2)
+
+    img.paste(paint(body_m, body_fn), (0, 0), body_m)
+    img.paste(paint(dome_m, dome_fn), (0, 0), dome_m)
+
     d = ImageDraw.Draw(img)
-    bw = int(r * 0.84)
-    top = neck_bot
-    d.rounded_rectangle([cx - bw // 2 - 2 * S, top, cx + bw // 2 + 2 * S, top + 14 * S], radius=4 * S, fill=(205, 210, 216, 255))
-    y = top + 16 * S
-    for i in range(3):
-        d.rounded_rectangle([cx - bw // 2, y, cx + bw // 2, y + 11 * S], radius=5 * S, fill=(170, 176, 184, 255) if i % 2 == 0 else (140, 146, 154, 255))
-        y += 12 * S
-    d.pieslice([cx - bw // 4, y - 10 * S, cx + bw // 4, y + 14 * S], 0, 180, fill=(60, 64, 70, 255))
+    # thin seam between dome and body
+    d.line([(CX - int(W * .25), dome_bot), (CX + int(W * .25), dome_bot)], fill=(210, 212, 215, 255), width=2 * S)
+
+    # E26 base: short collar + threads + contact
+    bw = 2 * half_bot
+    y = body_bot
+    d.rectangle([CX - bw // 2, y, CX + bw // 2, y + 6 * S], fill=(150, 156, 164, 255))
+    y += 6 * S
+    for i in range(4):
+        tw = bw + 6 * S if i % 2 == 0 else bw
+        col = (196, 200, 206, 255) if i % 2 == 0 else (128, 134, 142, 255)
+        d.rounded_rectangle([CX - tw // 2, y, CX + tw // 2, y + 9 * S], radius=4 * S, fill=col)
+        y += 9 * S
+    d.polygon([(CX - bw // 2 + 2 * S, y), (CX + bw // 2 - 2 * S, y), (CX + bw // 4, y + 12 * S), (CX - bw // 4, y + 12 * S)], fill=(110, 116, 124, 255))
+    d.ellipse([CX - 9 * S, y + 8 * S, CX + 9 * S, y + 18 * S], fill=(70, 74, 80, 255))
+
+    # soft highlight on the dome
+    hl = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(hl).ellipse([CX - int(W * .19), int(H * .09), CX - int(W * .06), int(H * .20)], fill=(255, 255, 255, 110))
+    img.alpha_composite(hl.filter(ImageFilter.GaussianBlur(7 * S)))
 
     img.resize((256, 256), Image.LANCZOS).save(out)
     print("wrote", out)
 
 
-def ftw(nx, ny):
-    # tunable white: warm (bottom) to cool (top)
-    t = max(0.0, min(1.0, (ny + 1) / 2))
-    warm, cool = (255, 196, 120), (225, 238, 255)
-    c = tuple(int(cool[i] + (warm[i] - cool[i]) * t) for i in range(3))
-    return c + (255,)
+def dome_ftw(x, y, box):
+    # tunable white: cool at the top, warm toward the seam
+    t = (y - box[1]) / (box[3] - box[1])
+    return lerp((236, 243, 255, 255), (255, 214, 158, 255), t)
 
 
-def rgbtw(nx, ny):
-    # color wheel blended toward white in the center
-    ang = (math.atan2(ny, nx) / (2 * math.pi)) % 1.0
-    h6 = ang * 6
-    i = int(h6) % 6
-    f = h6 - int(h6)
-    q, t = 1 - f, f
-    rgb = [(1, t, 0), (q, 1, 0), (0, 1, t), (0, q, 1), (t, 0, 1), (1, 0, q)][i]
-    sat = min(1.0, math.hypot(nx, ny) * 0.95)
-    c = tuple(int(255 * (1 - sat + sat * v)) for v in rgb)
-    return c + (255,)
+def dome_rgbtw(x, y, box):
+    # hue sweeps left to right, fading to white at the top
+    h = (x - box[0]) / (box[2] - box[0])
+    h6 = (h * 6) % 6
+    i, f = int(h6), h6 - int(h6)
+    rgb = [(1, f, 0), (1 - f, 1, 0), (0, 1, f), (0, 1 - f, 1), (f, 0, 1), (1, 0, 1 - f)][i]
+    sat = 0.25 + 0.75 * (y - box[1]) / (box[3] - box[1])
+    return tuple(int(255 * (1 - sat + sat * v)) for v in rgb) + (255,)
 
 
 out = Path(sys.argv[1])
-bulb(ftw, (255, 210, 150), out / "control4-vibrant-ftw.png")
-bulb(rgbtw, (200, 170, 255), out / "control4-vibrant-rgbtw.png")
+out.mkdir(parents=True, exist_ok=True)
+draw_bulb(dome_ftw, (255, 214, 160), out / "control4-vibrant-ftw.png")
+draw_bulb(dome_rgbtw, (190, 170, 255), out / "control4-vibrant-rgbtw.png")
