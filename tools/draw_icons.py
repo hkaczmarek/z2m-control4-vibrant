@@ -36,6 +36,7 @@ P = {
 SCALE = 0.90 * H / P["bottom"]
 SLIM = 0.85          # overall width factor (1.0 = reference proportions)
 CROWN = 2.8          # dome top flatness: 2 = elliptical, higher = flatter top
+BASE_SLIM = 0.85     # screw base width relative to the bottom of the body
 Y0 = int(0.05 * H)
 
 
@@ -110,11 +111,13 @@ def draw_bulb(dome_fn, glow_rgb, out: Path):
     d.line([(CX - half_seam, dome_bot), (CX + half_seam, dome_bot)], fill=(210, 212, 215, 255), width=2 * S)
 
     # E26 base: collar, threads, insulator and contact, scaled to the reference
-    bw = 2 * half_bot
+    bw = int(2 * half_bot * BASE_SLIM)
     y = body_bot
     base_h = ry("bottom") - body_bot
     collar = int(base_h * 0.08)
-    d.rectangle([CX - bw // 2, y, CX + bw // 2, y + collar], fill=(150, 156, 164, 255))
+    # collar narrows from the body width down to the screw base width
+    d.polygon([(CX - half_bot, y), (CX + half_bot, y), (CX + bw // 2, y + collar), (CX - bw // 2, y + collar)],
+              fill=(150, 156, 164, 255))
     y += collar
     n, th = 4, int(base_h * 0.15)
     for i in range(n):

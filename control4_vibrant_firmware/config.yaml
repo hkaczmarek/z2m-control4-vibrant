@@ -1,5 +1,5 @@
 name: "Control4 Vibrant Firmware"
-version: "0.2.1"
+version: "0.2.2"
 slug: "control4_vibrant_firmware"
 description: "Keeps Zigbee2MQTT's update list current with Control4 Vibrant bulb firmware, downloaded from Control4's public driver site"
 url: "https://github.com/hkaczmarek/z2m-control4-vibrant"
