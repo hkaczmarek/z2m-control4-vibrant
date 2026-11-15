@@ -6,6 +6,12 @@ keeps their firmware updates coming, downloaded straight from Control4's public 
 > **Status:** VB-FTW-A19 and VB-RGBTW-A19 are tested on real hardware, including automatic
 > firmware updates through the Home Assistant app. The other Vibrant models (BR20, BR30, REC4,
 > REC6) are not tested yet; their firmware is already handled by the app.
+>
+> **Built into Zigbee2MQTT soon:** both A19 bulbs were merged into Zigbee2MQTT's device library
+> ([Koenkk/zigbee-herdsman-converters#13829](https://github.com/Koenkk/zigbee-herdsman-converters/pull/13829),
+> release 26.133.0). Once your Zigbee2MQTT version includes that release, you no longer need the
+> converters below: delete them from `external_converters` and restart. The app is still needed
+> for firmware updates, since Control4 doesn't publish an OTA index.
 
 ## What works
 
@@ -84,7 +90,8 @@ firmware** and upload the `.zigbee` file for your model.
 The bulb's Level Control cluster uses a **0–100 scale** instead of the Zigbee standard 0–254.
 It silently ignores any `moveToLevel` above 100 and reports `currentLevel` as 0–100, so with a
 generic definition the bulb dims down but never up. The converter scales brightness between
-0–254 and 0–100 for set, step, move and reports. Color temperature uses standard mireds.
+0–254 and 0–100 for set and reports (brightness steps and hold-to-dim moves are passed through
+unscaled, so they move about 2.5× as far/fast). Color temperature uses standard mireds.
 
 The bulb also jumps to full brightness on a plain "on" command. The converter turns it on at
 its last brightness instead, so it comes back where you left it and Home Assistant stays in step.
