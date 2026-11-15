@@ -11,10 +11,14 @@ No firmware is included in this repository; you supply the .c4z.
 Usage:
     python3 extract_firmware.py control4_smart_bulb.c4z [--out DIR] [--prefix PATH]
                                 [--merge URL_OR_FILE ...]
+    python3 extract_firmware.py --from-control4 [--out DIR] [--merge ...]
 
     --out     where to write the images and index (default: ./ota)
     --prefix  the path Zigbee2MQTT should use for the images, relative to its
               data directory (default: the name of --out, e.g. "ota")
+    --from-control4
+              download the newest driver from Control4's public driver API
+              (no login needed); skipped when the cached copy is current
     --merge   include another OTA index (URL or file) in the output. Zigbee2MQTT
               accepts only one override index, so if you already use one, merge
               it here. Re-run the script to pick up changes to merged indexes.
@@ -55,6 +59,46 @@ def parse_header(data: bytes) -> dict:
     }
 
 
+DRIVER_API = (
+    "https://drivers.control4.com/api/v1/public/drivers/by-filename/"
+    "control4_smart_bulb.c4z?osVersion=999999.0.0&fields=downloadUrl%2Cversion"
+)
+
+
+def fetch_driver(cache_dir: Path) -> Path:
+    """Download the newest control4_smart_bulb.c4z from Control4's public driver API.
+
+    The API returns a short-lived signed download URL plus the driver version.
+    The .c4z and its version are cached in cache_dir; the download is skipped
+    when the cached version is already the newest."""
+    from urllib.request import Request, urlopen
+
+    headers = {"User-Agent": "z2m-control4-vibrant/extract_firmware"}
+    with urlopen(Request(DRIVER_API, headers=headers), timeout=30) as r:
+        info = json.load(r)
+    version, url = str(info.get("version", "")), info.get("downloadUrl")
+    if not version or not url:
+        raise SystemExit(f"unexpected answer from Control4 driver API: {info}")
+
+    cached = cache_dir / "control4_smart_bulb.c4z"
+    version_file = cache_dir / "control4_smart_bulb.version"
+    if cached.exists() and version_file.exists() and version_file.read_text().strip() == version:
+        print(f"Control4 driver {version} already downloaded")
+        return cached
+
+    print(f"Downloading Control4 driver {version} ...")
+    with urlopen(Request(url, headers=headers), timeout=120) as r:
+        data = r.read()
+    if not zipfile.is_zipfile(__import__("io").BytesIO(data)):
+        raise SystemExit("downloaded driver is not a valid .c4z (zip) file")
+    tmp = cached.with_suffix(".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(cached)
+    version_file.write_text(version + "\n")
+    print(f"Saved {cached} ({len(data)} bytes)")
+    return cached
+
+
 def load_index(source: str) -> list:
     """Load an OTA index from a URL or file. Entries must be self-contained
     (web URL plus imageType/manufacturerCode/fileVersion), as Zigbee2MQTT
@@ -82,7 +126,13 @@ def version_str(v: int) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("c4z", type=Path, help="path to control4_smart_bulb.c4z")
+    ap.add_argument("c4z", type=Path, nargs="?", help="path to control4_smart_bulb.c4z (omit with --from-control4)")
+    ap.add_argument(
+        "--from-control4",
+        action="store_true",
+        help="download the newest driver from Control4's public driver API instead of using a local .c4z; "
+        "the download is skipped when the cached copy is already the newest version",
+    )
     ap.add_argument("--out", type=Path, default=Path("ota"))
     ap.add_argument("--prefix", default=None)
     ap.add_argument(
@@ -97,6 +147,11 @@ def main() -> int:
 
     prefix = (args.prefix if args.prefix is not None else args.out.name).strip("/")
     args.out.mkdir(parents=True, exist_ok=True)
+
+    if args.from_control4:
+        args.c4z = fetch_driver(args.out)
+    elif args.c4z is None:
+        ap.error("give a .c4z path or use --from-control4")
 
     index = []
     with zipfile.ZipFile(args.c4z) as z:
