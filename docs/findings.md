@@ -51,17 +51,16 @@ uses endpoint 1 only.
 
 # Findings: VB-RGBTW-A19
 
-Test bulb: IEEE `0x000fff0000581281`, Zigbee2MQTT 2.14.3, 14 Nov 2026.
+Test bulb: IEEE `0x000fff0000581281`, Zigbee2MQTT 2.14.3.
 
 - Model ID `C4-VB-RGBTW-A19`; shipped on firmware 6.3.18, same endpoint layout as the FTW
   (endpoints 1 and 196, same clusters, same `msTemperatureMeasurement` bind refusal).
 - Same 0–100 brightness scale as the FTW; the same converter fix works (100% = 254, 50% = 127).
-- XY color uses standard values: red 0.701/0.299, green 0.172/0.747, blue 0.136/0.040 were set and
-  read back. Switching from color back to color temperature (370 mireds) works.
+- XY color works, and switching from color back to color temperature works.
 - Reading `enhancedCurrentHue` / `currentSaturation` returns `UNSUPPORTED_ATTRIBUTE`, so the
   converter exposes XY only. With hue/saturation declared, Zigbee2MQTT's combined color reads fail.
 - On 6.3.18 the bulb answered Zigbee2MQTT's manual update check; the update to 6.9.134 was offered
-  from the app-generated index and installed in about 40 minutes (5,199 blocks).
+  from the app-generated index and installed.
 - After the update, like the FTW, the bulb ignores the manual update check
   (`Not supported (Router)` at Zigbee2MQTT startup).
 
@@ -71,4 +70,4 @@ Test bulb: IEEE `0x000fff0000581281`, Zigbee2MQTT 2.14.3, 14 Nov 2026.
   (`drivers.control4.com/api/v1/public/drivers/by-filename/control4_smart_bulb.c4z`) returns the
   driver version and a short-lived signed CloudFront download URL; no login is needed.
 - The app downloads the driver only when the version changes, extracts all seven images and writes
-  the index (merged with any existing override index). Tested on Home Assistant OS 18.4.
+  the index (merged with any existing override index). Tested on a real Home Assistant install.
