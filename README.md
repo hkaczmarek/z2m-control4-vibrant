@@ -3,19 +3,19 @@
 Zigbee2MQTT support for Control4 Vibrant Zigbee 3.0 smart bulbs, plus a Home Assistant app that
 keeps their firmware updates coming, downloaded straight from Control4's public driver site.
 
-> **Status: work in progress.** VB-FTW-A19 is fully tested. VB-RGBTW-A19 is paired and its
-> firmware update check works; color control is still being tested. The Home Assistant app is new
-> and has only been tested against a simulated Control4 server so far.
+> **Status:** VB-FTW-A19 and VB-RGBTW-A19 are tested on real hardware, including automatic
+> firmware updates through the Home Assistant app. The other Vibrant models (BR20, BR30, REC4,
+> REC6) are not tested yet; their firmware is already handled by the app.
 
 ## What works
 
 | Feature | VB-FTW-A19 | VB-RGBTW-A19 |
 |---|---|---|
 | On / off | ✅ | ✅ |
-| Brightness, both directions (see [why a custom converter](#why-a-custom-converter)) | ✅ | expected (same fix), testing |
-| Color temperature 1800–6500 K (153–555 mireds) | ✅ | testing |
-| Color (XY / hue-saturation) | — | testing |
-| Firmware update via Zigbee2MQTT | ✅ 6.3.18 → 6.9.134 | ✅ update offered 6.3.18 → 6.9.134 |
+| Brightness, both directions (see [why a custom converter](#why-a-custom-converter)) | ✅ | ✅ |
+| Color temperature 1800–6500 K (153–555 mireds) | ✅ | ✅ |
+| Color (XY) | — | ✅ (the bulb has no hue/saturation attributes) |
+| Firmware update via Zigbee2MQTT | ✅ 6.3.18 → 6.9.134 | ✅ 6.3.18 → 6.9.134, offered and installed automatically |
 | Control4 extras (Daylight Mode, group scenes, manufacturer clusters) | ❌ | ❌ |
 
 Tested with Zigbee2MQTT 2.14.3.
@@ -28,7 +28,13 @@ Until these bulbs are supported in Zigbee2MQTT itself:
    Zigbee2MQTT `configuration.yaml` (Zigbee2MQTT 2.11+ also needs `advanced.enable_external_js`).
 2. Restart Zigbee2MQTT. Bulbs that were already paired pick up the new definition after the restart.
 
-The bulb should show as **Control4 VB-FTW-A19** (or **VB-RGBTW-A19**) with a single light.
+The bulb should show as **Vibrant Fully Tunable White A19 Lamp** (or **Vibrant RGB Tunable White
+A19 Lamp**) with a single light.
+
+**Icons (optional):** the app (below) copies two bulb icons into Zigbee2MQTT's `device_icons`
+folder; the same files are in `device_icons/` here. In the Zigbee2MQTT frontend open the bulb →
+**Settings** → **Icon** and enter `device_icons/control4-vibrant-ftw.png` or
+`device_icons/control4-vibrant-rgbtw.png`.
 
 ## 2. Firmware updates (Home Assistant app)
 
@@ -93,7 +99,7 @@ From the driver's binding keys and firmware images:
 | C4-VB-FTW-REC4 | Tunable white 4" trim | 0x0407 | planned |
 | C4-VB-FTW-BR30 | Tunable white BR30 | 0x0408 | planned |
 | C4-VB-FTW-BR20 | Tunable white BR20 | 0x0409 | planned |
-| C4-VB-RGBTW-A19 | Color + tunable white A19 | 0x040A | ⏳ in testing |
+| C4-VB-RGBTW-A19 | Color + tunable white A19 | 0x040A | ✅ tested |
 | C4-VB-RGBTW-BR30 | Color + tunable white BR30 | 0x040B | planned |
 
 Not affiliated with Control4 or Snap One. Control4 and Vibrant are trademarks of their owners.
