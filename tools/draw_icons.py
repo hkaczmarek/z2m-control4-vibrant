@@ -35,6 +35,7 @@ P = {
 }
 SCALE = 0.90 * H / P["bottom"]
 SLIM = 0.85          # overall width factor (1.0 = reference proportions)
+CROWN = 2.8          # dome top flatness: 2 = elliptical, higher = flatter top
 Y0 = int(0.05 * H)
 
 
@@ -59,7 +60,8 @@ def shape_masks():
     a, b = w_dome, widest - top
     for i in range(1, 60):
         t = math.pi / 2 * (i / 60)            # from 0 (side) to pi/2 (top)
-        pts.append((CX + a * math.cos(t), widest - b * math.sin(t)))
+        # superellipse: rounded shoulders, flatter crown (CROWN=2 is a plain ellipse)
+        pts.append((CX + a * math.cos(t) ** (2 / CROWN), widest - b * math.sin(t) ** (2 / CROWN)))
     pts.append((CX, top))
     pts += [(2 * CX - x, y) for x, y in reversed(pts[:-1])]
     dome = Image.new("L", (W, H), 0)
