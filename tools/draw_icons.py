@@ -20,33 +20,54 @@ def lerp(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(len(a)))
 
 
+# Silhouette measured as proportions of a generic flat-dome A19 (units: px of a
+# 1680 px tall reference, x = half width from the center line).
+REF_H = 1680
+P = {
+    "top": 0,            # top center of the dome
+    "dome_widest": 230,  # where the dome is widest
+    "seam": 420,         # dome / body seam
+    "body_bot": 1020,    # body meets the screw base
+    "bottom": 1480,      # tip of the contact (base slightly shortened for the icon)
+    "w_dome": 455,       # widest dome half width
+    "w_seam": 425,       # half width at the seam
+    "w_body_bot": 300,   # half width at the bottom of the body
+}
+SCALE = 0.90 * H / P["bottom"]
+Y0 = int(0.05 * H)
+
+
+def ry(v):
+    return Y0 + int(P[v] * SCALE) if isinstance(v, str) else Y0 + int(v * SCALE)
+
+
+def rx(v):
+    return int((P[v] if isinstance(v, str) else v) * SCALE)
+
+
 def shape_masks():
     """Return (dome_mask, body_mask, base_info) for the bulb silhouette.
 
-    A cone from the screw base up to the seam; above it the dome keeps flaring
-    slightly outward and closes with large rounded shoulders."""
-    from PIL import ImageChops
+    Body: straight cone. Dome: flares slightly outward above the seam, then
+    closes with an elliptical crown (rounded shoulders, gently arched top)."""
+    top, widest, seam, body_bot = ry("top"), ry("dome_widest"), ry("seam"), ry("body_bot")
+    w_dome, w_seam, w_bot = rx("w_dome"), rx("w_seam"), rx("w_body_bot")
 
-    top, dome_bot, body_bot = int(H * 0.05), int(H * 0.36), int(H * 0.70)
-    half_bot = int(W * 0.115)          # half width where the body meets the base
-    half_seam = int(W * 0.235)         # half width at the dome/body seam
-    half_top = int(W * 0.255)          # the dome flares slightly wider toward the top
-    corner = int(W * 0.17)             # roundness of the dome's shoulders
+    # dome outline: right side up, elliptical crown, left side down
+    pts = [(CX + w_seam, seam), (CX + w_dome, widest)]
+    a, b = w_dome, widest - top
+    for i in range(1, 60):
+        t = math.pi / 2 * (i / 60)            # from 0 (side) to pi/2 (top)
+        pts.append((CX + a * math.cos(t), widest - b * math.sin(t)))
+    pts.append((CX, top))
+    pts += [(2 * CX - x, y) for x, y in reversed(pts[:-1])]
+    dome = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(dome).polygon(pts, fill=255)
 
-    cone = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(cone).polygon(
-        [(CX - half_top, top), (CX + half_top, top), (CX + half_seam, dome_bot),
-         (CX + half_bot, body_bot), (CX - half_bot, body_bot), (CX - half_seam, dome_bot)], fill=255)
-    rounded = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(rounded).rounded_rectangle(
-        [CX - half_top, top, CX + half_top, body_bot + corner], radius=corner, fill=255)
-    silhouette = ImageChops.multiply(cone, rounded)
-
-    upper = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(upper).rectangle([0, 0, W, dome_bot], fill=255)
-    dome = ImageChops.multiply(silhouette, upper)
-    body = ImageChops.subtract(silhouette, upper)
-    return dome, body, (dome_bot, body_bot, half_bot, half_seam)
+    body = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(body).polygon(
+        [(CX - w_seam, seam), (CX + w_seam, seam), (CX + w_bot, body_bot), (CX - w_bot, body_bot)], fill=255)
+    return dome, body, (seam, body_bot, w_bot, w_seam)
 
 
 def paint(mask, fn):
@@ -85,18 +106,22 @@ def draw_bulb(dome_fn, glow_rgb, out: Path):
     # thin seam between dome and body
     d.line([(CX - half_seam, dome_bot), (CX + half_seam, dome_bot)], fill=(210, 212, 215, 255), width=2 * S)
 
-    # E26 base: short collar + threads + contact
+    # E26 base: collar, threads, insulator and contact, scaled to the reference
     bw = 2 * half_bot
     y = body_bot
-    d.rectangle([CX - bw // 2, y, CX + bw // 2, y + 6 * S], fill=(150, 156, 164, 255))
-    y += 6 * S
-    for i in range(4):
-        tw = bw + 6 * S if i % 2 == 0 else bw
-        col = (196, 200, 206, 255) if i % 2 == 0 else (128, 134, 142, 255)
-        d.rounded_rectangle([CX - tw // 2, y, CX + tw // 2, y + 9 * S], radius=4 * S, fill=col)
-        y += 9 * S
-    d.polygon([(CX - bw // 2 + 2 * S, y), (CX + bw // 2 - 2 * S, y), (CX + bw // 4, y + 12 * S), (CX - bw // 4, y + 12 * S)], fill=(110, 116, 124, 255))
-    d.ellipse([CX - 9 * S, y + 8 * S, CX + 9 * S, y + 18 * S], fill=(70, 74, 80, 255))
+    base_h = ry("bottom") - body_bot
+    collar = int(base_h * 0.08)
+    d.rectangle([CX - bw // 2, y, CX + bw // 2, y + collar], fill=(150, 156, 164, 255))
+    y += collar
+    n, th = 4, int(base_h * 0.15)
+    for i in range(n):
+        tw = bw + 6 * S if i % 2 == 0 else bw - 2 * S
+        col = (200, 204, 210, 255) if i % 2 == 0 else (128, 134, 142, 255)
+        d.rounded_rectangle([CX - tw // 2, y, CX + tw // 2, y + th], radius=th // 2, fill=col)
+        y += th
+    ins = ry("bottom") - y
+    d.polygon([(CX - bw // 2 + 2 * S, y), (CX + bw // 2 - 2 * S, y), (CX + bw // 5, y + int(ins * 0.7)), (CX - bw // 5, y + int(ins * 0.7))], fill=(60, 64, 70, 255))
+    d.ellipse([CX - bw // 6, y + int(ins * 0.45), CX + bw // 6, ry("bottom")], fill=(150, 156, 164, 255))
 
     # soft highlight on the dome
     hl = Image.new("RGBA", (W, H), (0, 0, 0, 0))
