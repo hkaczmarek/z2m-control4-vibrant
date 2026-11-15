@@ -3,7 +3,7 @@
 Shape: flat, wide dome on top, straight taper, E26 screw base (a generic modern
 A19 silhouette). No logos, lettering or product markings.
 
-Usage: python3 draw_icons.py OUTPUT_DIR
+Usage: python3 draw_icons.py OUTPUT_DIR [SIZE]   (SIZE default 256; 512 for zigbee2mqtt.io)
 """
 import math
 import sys
@@ -134,7 +134,7 @@ def draw_bulb(dome_fn, glow_rgb, out: Path):
     ImageDraw.Draw(hl).ellipse([CX - int(W * .19), int(H * .09), CX - int(W * .06), int(H * .20)], fill=(255, 255, 255, 110))
     img.alpha_composite(hl.filter(ImageFilter.GaussianBlur(7 * S)))
 
-    img.resize((256, 256), Image.LANCZOS).save(out)
+    img.resize((SIZE, SIZE), Image.LANCZOS).save(out)
     print("wrote", out)
 
 
@@ -155,6 +155,7 @@ def dome_rgbtw(x, y, box):
 
 
 out = Path(sys.argv[1])
+SIZE = int(sys.argv[2]) if len(sys.argv) > 2 else 256
 out.mkdir(parents=True, exist_ok=True)
 draw_bulb(dome_ftw, (255, 214, 160), out / "control4-vibrant-ftw.png")
 draw_bulb(dome_rgbtw, (190, 170, 255), out / "control4-vibrant-rgbtw.png")
