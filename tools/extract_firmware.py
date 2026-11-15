@@ -59,9 +59,10 @@ def parse_header(data: bytes) -> dict:
     }
 
 
-DRIVER_API = (
+DRIVER_API = __import__("os").environ.get(
+    "C4_DRIVER_API",
     "https://drivers.control4.com/api/v1/public/drivers/by-filename/"
-    "control4_smart_bulb.c4z?osVersion=999999.0.0&fields=downloadUrl%2Cversion"
+    "control4_smart_bulb.c4z?osVersion=999999.0.0&fields=downloadUrl%2Cversion",
 )
 
 
@@ -136,6 +137,12 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=Path("ota"))
     ap.add_argument("--prefix", default=None)
     ap.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="where --from-control4 keeps the downloaded driver (default: --out)",
+    )
+    ap.add_argument(
         "--merge",
         action="append",
         default=[],
@@ -149,7 +156,9 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
 
     if args.from_control4:
-        args.c4z = fetch_driver(args.out)
+        cache = args.cache_dir or args.out
+        cache.mkdir(parents=True, exist_ok=True)
+        args.c4z = fetch_driver(cache)
     elif args.c4z is None:
         ap.error("give a .c4z path or use --from-control4")
 
