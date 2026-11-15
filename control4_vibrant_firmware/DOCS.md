@@ -24,6 +24,11 @@ repository.
    If you already have a `zigbee_ota_override_index_location` (for example for custom switch
    firmware), put that URL into this app's `merge_indexes` option instead, so both keep working.
 
+The app also copies two bulb icons into Zigbee2MQTT's `device_icons` folder. To use one, open
+the bulb in the Zigbee2MQTT frontend, go to **Settings** and set **Icon** to
+`device_icons/control4-vibrant-ftw.png` (tunable white) or
+`device_icons/control4-vibrant-rgbtw.png` (color).
+
 You also need the Vibrant converters from this repository until they are part of Zigbee2MQTT.
 
 ## Options

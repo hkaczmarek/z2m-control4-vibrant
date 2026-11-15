@@ -8,6 +8,7 @@ the bulb firmware and rewrites <zigbee2mqtt_data_dir>/ota/vibrant-ota-index.json
 """
 
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -21,11 +22,29 @@ def log(msg: str) -> None:
     print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}", flush=True)
 
 
+ICONS = Path("/app/icons")
+
+
+def install_icons(z2m: Path) -> None:
+    """Copy the bulb icons into Zigbee2MQTT's device_icons folder (only if changed)."""
+    dest = z2m / "device_icons"
+    dest.mkdir(exist_ok=True)
+    for src in sorted(ICONS.glob("*.png")):
+        target = dest / src.name
+        if not target.exists() or target.read_bytes() != src.read_bytes():
+            shutil.copyfile(src, target)
+            log(f"Installed icon {target}")
+
+
 def run_once(opts: dict) -> bool:
     z2m = Path(opts["zigbee2mqtt_data_dir"])
     if not (z2m / "configuration.yaml").exists():
         log(f"ERROR: no Zigbee2MQTT configuration.yaml in {z2m}; check zigbee2mqtt_data_dir")
         return False
+    try:
+        install_icons(z2m)
+    except OSError as e:
+        log(f"WARNING: could not install icons: {e}")
     cmd = [
         sys.executable, "/app/extract_firmware.py", "--from-control4",
         "--out", str(z2m / "ota"), "--prefix", "ota", "--cache-dir", str(CACHE),
