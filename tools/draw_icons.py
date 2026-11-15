@@ -21,22 +21,32 @@ def lerp(a, b, t):
 
 
 def shape_masks():
-    """Return (dome_mask, body_mask, outline_points) for the bulb silhouette."""
-    top, dome_bot, body_bot = int(H * 0.06), int(H * 0.36), int(H * 0.70)
-    half_top = int(W * 0.25)          # half width at the widest point
-    half_bot = int(W * 0.115)         # half width where the body meets the base
-    corner = int(W * 0.13)            # roundness of the dome's shoulders
+    """Return (dome_mask, body_mask, base_info) for the bulb silhouette.
 
-    dome = Image.new("L", (W, H), 0)
-    d = ImageDraw.Draw(dome)
-    d.rounded_rectangle([CX - half_top, top, CX + half_top, dome_bot + corner], radius=corner, fill=255)
-    d.rectangle([CX - half_top, dome_bot, CX + half_top, H], fill=0)
+    A cone from the screw base up to the seam; above it the dome keeps flaring
+    slightly outward and closes with large rounded shoulders."""
+    from PIL import ImageChops
 
-    body = Image.new("L", (W, H), 0)
-    b = ImageDraw.Draw(body)
-    b.polygon([(CX - half_top, dome_bot), (CX + half_top, dome_bot),
-               (CX + half_bot, body_bot), (CX - half_bot, body_bot)], fill=255)
-    return dome, body, (dome_bot, body_bot, half_bot)
+    top, dome_bot, body_bot = int(H * 0.05), int(H * 0.36), int(H * 0.70)
+    half_bot = int(W * 0.115)          # half width where the body meets the base
+    half_seam = int(W * 0.235)         # half width at the dome/body seam
+    half_top = int(W * 0.255)          # the dome flares slightly wider toward the top
+    corner = int(W * 0.17)             # roundness of the dome's shoulders
+
+    cone = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(cone).polygon(
+        [(CX - half_top, top), (CX + half_top, top), (CX + half_seam, dome_bot),
+         (CX + half_bot, body_bot), (CX - half_bot, body_bot), (CX - half_seam, dome_bot)], fill=255)
+    rounded = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(rounded).rounded_rectangle(
+        [CX - half_top, top, CX + half_top, body_bot + corner], radius=corner, fill=255)
+    silhouette = ImageChops.multiply(cone, rounded)
+
+    upper = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(upper).rectangle([0, 0, W, dome_bot], fill=255)
+    dome = ImageChops.multiply(silhouette, upper)
+    body = ImageChops.subtract(silhouette, upper)
+    return dome, body, (dome_bot, body_bot, half_bot, half_seam)
 
 
 def paint(mask, fn):
@@ -54,7 +64,7 @@ def paint(mask, fn):
 
 def draw_bulb(dome_fn, glow_rgb, out: Path):
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    dome_m, body_m, (dome_bot, body_bot, half_bot) = shape_masks()
+    dome_m, body_m, (dome_bot, body_bot, half_bot, half_seam) = shape_masks()
 
     # glow behind the lit dome
     glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -73,7 +83,7 @@ def draw_bulb(dome_fn, glow_rgb, out: Path):
 
     d = ImageDraw.Draw(img)
     # thin seam between dome and body
-    d.line([(CX - int(W * .25), dome_bot), (CX + int(W * .25), dome_bot)], fill=(210, 212, 215, 255), width=2 * S)
+    d.line([(CX - half_seam, dome_bot), (CX + half_seam, dome_bot)], fill=(210, 212, 215, 255), width=2 * S)
 
     # E26 base: short collar + threads + contact
     bw = 2 * half_bot
