@@ -46,8 +46,17 @@ This extracts one OTA image per Vibrant model, verifies each header, and writes
     zigbee_ota_override_index_location: ota/vibrant-ota-index.json
   ```
 
-  so Zigbee2MQTT's normal update check offers the new version. *(The index path has not been
-  tested end to end yet; the manual upload has.)*
+  so Zigbee2MQTT's normal update check offers the new version.
+
+  Zigbee2MQTT accepts only **one** override index. If you already use one (for example a
+  custom-firmware project's index URL), merge it in instead of replacing it:
+
+  ```sh
+  python3 tools/extract_firmware.py control4_smart_bulb.c4z --out ota \
+      --merge https://example.com/their/index.json
+  ```
+
+  Re-run the script now and then to pick up updates to the merged index.
 
 An A19 update takes about 35 minutes. Leave the lamp powered while it runs. Updating through a
 non-Control4 controller may affect Control4 warranty support.

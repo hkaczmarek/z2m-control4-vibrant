@@ -10,10 +10,14 @@ No firmware is included in this repository; you supply the .c4z.
 
 Usage:
     python3 extract_firmware.py control4_smart_bulb.c4z [--out DIR] [--prefix PATH]
+                                [--merge URL_OR_FILE ...]
 
     --out     where to write the images and index (default: ./ota)
     --prefix  the path Zigbee2MQTT should use for the images, relative to its
               data directory (default: the name of --out, e.g. "ota")
+    --merge   include another OTA index (URL or file) in the output. Zigbee2MQTT
+              accepts only one override index, so if you already use one, merge
+              it here. Re-run the script to pick up changes to merged indexes.
 
 Then copy the output folder into the Zigbee2MQTT data directory (the folder
 holding configuration.yaml) and set in configuration.yaml:
@@ -51,6 +55,26 @@ def parse_header(data: bytes) -> dict:
     }
 
 
+def load_index(source: str) -> list:
+    """Load an OTA index from a URL or file. Entries must be self-contained
+    (web URL plus imageType/manufacturerCode/fileVersion), as Zigbee2MQTT
+    uses web-hosted override entries as-is."""
+    if source.startswith(("http://", "https://")):
+        from urllib.request import urlopen
+
+        with urlopen(source, timeout=30) as r:
+            data = json.load(r)
+    else:
+        data = json.loads(Path(source).read_text())
+    if not isinstance(data, list):
+        raise SystemExit(f"{source}: expected a JSON list of OTA entries")
+    for i, e in enumerate(data):
+        missing = [k for k in ("url", "imageType", "manufacturerCode", "fileVersion") if k not in e]
+        if missing:
+            raise SystemExit(f"{source}: entry {i} is missing {', '.join(missing)}")
+    return data
+
+
 def version_str(v: int) -> str:
     # Control4 encodes 6.9.134 as 0x06090086 (major, minor, 16-bit build)
     return f"{(v >> 24) & 0xFF}.{(v >> 16) & 0xFF}.{v & 0xFFFF}"
@@ -61,6 +85,14 @@ def main() -> int:
     ap.add_argument("c4z", type=Path, help="path to control4_smart_bulb.c4z")
     ap.add_argument("--out", type=Path, default=Path("ota"))
     ap.add_argument("--prefix", default=None)
+    ap.add_argument(
+        "--merge",
+        action="append",
+        default=[],
+        metavar="URL_OR_FILE",
+        help="another OTA index to include (repeatable). Zigbee2MQTT accepts only one "
+        "override index, so use this to keep an index you already rely on.",
+    )
     args = ap.parse_args()
 
     prefix = (args.prefix if args.prefix is not None else args.out.name).strip("/")
@@ -104,9 +136,15 @@ def main() -> int:
             })
             print(f"{model:18s} {ver:10s} image type 0x{hdr['imageType']:04X}  -> {args.out / file_name}")
 
+    vibrant_count = len(index)
+    for source in args.merge:
+        entries = load_index(source)
+        index.extend(entries)
+        print(f"merged {len(entries)} entries from {source}")
+
     index_path = args.out / "vibrant-ota-index.json"
     index_path.write_text(json.dumps(index, indent=2) + "\n")
-    print(f"\nWrote {len(index)} images and {index_path}")
+    print(f"\nWrote {vibrant_count} Vibrant images and {index_path} ({len(index)} entries)")
     print("Copy the folder into your Zigbee2MQTT data directory and set:")
     print(f"  ota:\n    zigbee_ota_override_index_location: {prefix}/{index_path.name}")
     return 0
