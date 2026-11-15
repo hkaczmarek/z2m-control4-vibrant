@@ -82,7 +82,7 @@ const tzMap = new Map([
     [tz.light_brightness_move, scaledTz(tz.light_brightness_move)],
 ]);
 
-const lightExtend = m.light({colorTemp: {range: [153, 555]}, color: {modes: ['xy', 'hs'], enhancedHue: true}});
+const lightExtend = m.light({colorTemp: {range: [153, 555]}, color: {modes: ['xy']}});
 lightExtend.toZigbee = lightExtend.toZigbee.map((c) => tzMap.get(c) ?? c);
 lightExtend.fromZigbee = lightExtend.fromZigbee.map((c) => (c === fz.brightness ? fzBrightnessScaled : c));
 
