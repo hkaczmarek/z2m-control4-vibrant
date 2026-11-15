@@ -86,6 +86,9 @@ It silently ignores any `moveToLevel` above 100 and reports `currentLevel` as 0�
 generic definition the bulb dims down but never up. The converter scales brightness between
 0–254 and 0–100 for set, step, move and reports. Color temperature uses standard mireds.
 
+The bulb also jumps to full brightness on a plain "on" command. The converter turns it on at
+its last brightness instead, so it comes back where you left it and Home Assistant stays in step.
+
 See [docs/findings.md](docs/findings.md) for the full notes.
 
 ## Models

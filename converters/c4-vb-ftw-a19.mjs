@@ -40,6 +40,15 @@ function scaledTz(conv) {
         ...conv,
         convertSet: async (entity, key, value, meta) => {
             const message = {...meta.message};
+            // A plain "on" makes the bulb jump to full brightness instead of its
+            // last level. Turn it on at the last known brightness instead.
+            const turningOn = String(message.state).toUpperCase() === 'ON' ||
+                (String(message.state).toUpperCase() === 'TOGGLE' && meta.state.state === 'OFF');
+            if (key === 'state' && turningOn && message.brightness == null &&
+                message.brightness_percent == null && Number(meta.state.brightness) > 0) {
+                message.state = 'ON';
+                message.brightness = meta.state.brightness;
+            }
             if (message.brightness_percent != null) {
                 message.brightness = Math.min(DEV_MAX, Math.max(0, Math.round(Number(message.brightness_percent))));
                 delete message.brightness_percent;

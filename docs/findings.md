@@ -24,7 +24,10 @@ uses endpoint 1 only.
 
 - `moveToLevelWithOnOff` above 100 is ignored (no error, level unchanged). A transition time
   does not change this.
-- Turning on from off goes to level 100, which is full brightness.
+- A plain `on` command always goes to level 100 (full brightness), not the last level. The
+  converters send `on` as `moveToLevelWithOnOff` at the last known brightness instead; tested on
+  the RGBTW (off at 30%, back on at 30%). A power cycle or a group `on` still goes to the
+  firmware default.
 - Level 50 looks about half; 50 → 80 works. Confirmed on 6.3.18 and 6.9.134.
 
 ## Color
