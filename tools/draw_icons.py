@@ -34,6 +34,7 @@ P = {
     "w_body_bot": 300,   # half width at the bottom of the body
 }
 SCALE = 0.90 * H / P["bottom"]
+SLIM = 0.85          # overall width factor (1.0 = reference proportions)
 Y0 = int(0.05 * H)
 
 
@@ -42,7 +43,7 @@ def ry(v):
 
 
 def rx(v):
-    return int((P[v] if isinstance(v, str) else v) * SCALE)
+    return int((P[v] if isinstance(v, str) else v) * SCALE * SLIM)
 
 
 def shape_masks():
