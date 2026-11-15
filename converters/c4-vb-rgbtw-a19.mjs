@@ -1,4 +1,4 @@
-// Control4 Vibrant RGB + tunable white A19 lamp (VB-RGBTW-A19)
+// Control4 Vibrant RGB Tunable White A19 Lamp (VB-RGBTW-A19)
 //
 // The bulb's genLevelCtrl uses a 0-100 (percent) scale instead of the
 // standard 0-254: it rejects any moveToLevel above 100 and reports
@@ -90,7 +90,7 @@ export default {
     zigbeeModel: ['C4-VB-RGBTW-A19'],
     model: 'VB-RGBTW-A19',
     vendor: 'Control4',
-    description: 'Vibrant RGB + tunable white A19 lamp (1800-6500K)',
+    description: 'Vibrant RGB Tunable White A19 Lamp',
     extend: [m.identify(), lightExtend],
     ota: true,
 };
